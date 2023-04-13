@@ -25,21 +25,13 @@ object StreamingEndpoint {
   // Содержимое потока на усмотрение учащегося - может быть повторяющийся символ, может быть локальный файл.
   // Неверные значения переменных (строки или отрицательные числа в переменных) должны приводить к ответу Bad Request
 
-  private def getChunkOfBytes(size: Int) = Chunk(List.fill(size)('a').mkString)
 
   private val routes: HttpRoutes[IO] = HttpRoutes.of {
     case GET -> Root / chunk / total / time =>
-      val chunkSize = chunk.toInt
-      val t = time.toInt
-
-      val stream = Stream.unfoldChunk(total.toInt)(i =>
-        if (i > 0) {
-          if (i >= chunkSize) Some(getChunkOfBytes(chunkSize) -> (i - chunkSize))
-          else Some(getChunkOfBytes(i) -> 0)
-        }
-        else None
-      )
-        .evalTap(it => IO.sleep(t.second) *> IO.pure(it))
+      val stream = Stream.constant('a'.toByte, 1)
+        .take(total.toInt)
+        .chunkN(chunk.toInt, allowFewer = true)
+        .evalTap(it => IO.sleep(time.toInt.second) *> IO.pure(it))
 
       Ok(stream)
   }
